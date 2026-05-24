@@ -7,7 +7,7 @@ export default function ResumeBuilder() {
   const navigate = useNavigate();
   const { id } = useParams(); 
   
-  // --- Centalized API Configuration ---
+  // --- Centralized API Configuration ---
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://resume-qa-backend-service.onrender.com';
   
   const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
@@ -27,8 +27,12 @@ export default function ResumeBuilder() {
   // State to hold the temporary photo preview
   const [photoPreview, setPhotoPreview] = useState(null);
 
-  // --- Drag and Drop State now stores BOTH index and list type ---
+  // --- Drag and Drop State ---
   const [draggedItem, setDraggedItem] = useState({ index: null, type: null });
+
+  // --- NEW: Modal State ---
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [savedResumeId, setSavedResumeId] = useState(id || null);
 
   // --- Fetch existing resume data ---
   useEffect(() => {
@@ -43,7 +47,6 @@ export default function ResumeBuilder() {
         const token = localStorage.getItem('jwt_token');
         
         try {
-          // --- UPDATED to use API_BASE_URL ---
           const response = await axios.get(`${API_BASE_URL}/api/resumes`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -77,7 +80,7 @@ export default function ResumeBuilder() {
     const file = e.target.files[0];
     if (!file) return;
 
-    setSaveStatus({ message: 'Optimizing and resizing photo...', type: 'info' });
+    setSaveStatus({ message: 'Processing photo...', type: 'info' });
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -98,7 +101,7 @@ export default function ResumeBuilder() {
         sessionStorage.setItem('resume_photo', compressedBase64);
         setPhotoPreview(compressedBase64);
         
-        setSaveStatus({ message: 'Photo attached securely for this session!', type: 'success' });
+        setSaveStatus({ message: 'Photo attached securely!', type: 'success' });
       };
       img.src = event.target.result;
     };
@@ -124,8 +127,6 @@ export default function ResumeBuilder() {
   // --- Smart Drag and Drop Reorder Function ---
   const handleDrop = (e, targetIndex, stateArray, setter, listType) => {
     e.preventDefault(); 
-    
-    // Safety check: Ensure we only drop if the list types match and we aren't dropping on the same index
     if (draggedItem.index === null || draggedItem.index === targetIndex || draggedItem.type !== listType) return;
 
     const newArray = [...stateArray];
@@ -133,7 +134,7 @@ export default function ResumeBuilder() {
     newArray.splice(targetIndex, 0, draggedItemData);
     
     setter(newArray);
-    setDraggedItem({ index: null, type: null }); // Reset state
+    setDraggedItem({ index: null, type: null }); 
   };
 
   const handleLogout = () => {
@@ -142,10 +143,12 @@ export default function ResumeBuilder() {
     navigate('/');
   };
 
-  // --- The Save Function handles POST and PUT ---
+  // --- The Save Function ---
   const handleSaveResume = async (e) => {
     e.preventDefault();
-    setSaveStatus({ message: 'Saving securely to MongoDB...', type: 'info' });
+    
+    // UPDATED: Removed MongoDB reference and fixed status type
+    setSaveStatus({ message: 'Saving your resume...', type: 'info' }); 
 
     const token = localStorage.getItem('jwt_token');
 
@@ -162,26 +165,29 @@ export default function ResumeBuilder() {
     try {
       let response;
       if (id) {
-        // --- UPDATED to use API_BASE_URL ---
         response = await axios.put(`${API_BASE_URL}/api/resumes/${id}`, payload, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
         setSaveStatus({ message: `Success! Resume updated.`, type: 'success' });
+        setSavedResumeId(id); // Ensure ID is set for the modal
+        setShowSuccessModal(true); // Trigger Modal
       } else {
-        // --- UPDATED to use API_BASE_URL ---
         response = await axios.post(`${API_BASE_URL}/api/resumes`, payload, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
         setSaveStatus({ message: `Success! New resume saved.`, type: 'success' });
+        setSavedResumeId(response.data.id); // Save new ID for the modal
         
-        setTimeout(() => navigate(`/resume-builder/${response.data.id}`, { replace: true }), 1500);
+        // Quietly update the URL to edit mode without full reload
+        window.history.replaceState(null, '', `/resume-builder/${response.data.id}`);
+        setShowSuccessModal(true); // Trigger Modal
       }
     } catch (error) {
       if (error.response && error.response.status === 403) {
         setSaveStatus({ message: 'Session expired. Please log in again.', type: 'error' });
         handleLogout();
       } else {
-        setSaveStatus({ message: 'Failed to save resume. Is the backend running?', type: 'error' });
+        setSaveStatus({ message: 'Failed to save resume. Please try again.', type: 'error' });
       }
     }
   };
@@ -196,7 +202,7 @@ export default function ResumeBuilder() {
   }
 
   return (
-    <div style={{ maxWidth: '900px', margin: '40px auto', padding: '30px', backgroundColor: '#1e1e2f', color: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+    <div style={{ maxWidth: '900px', margin: '40px auto', padding: '30px', backgroundColor: '#1e1e2f', color: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)', position: 'relative' }}>
       
       <StatusPopup 
         message={saveStatus.message} 
@@ -316,13 +322,13 @@ export default function ResumeBuilder() {
           <input type="text" value={skills} onChange={(e) => setSkills(e.target.value)} style={inputStyle} />
         </div>
 
-        {/* --- Work Experience (Conditionally Draggable) --- */}
+        {/* --- Work Experience --- */}
         <div style={sectionStyle}>
           <h3 style={{ marginTop: 0, borderBottom: '1px solid #444', paddingBottom: '10px' }}>Work Experience</h3>
           {experience.map((exp, index) => (
             <div 
               key={index} 
-              draggable={experience.length > 1} // ONLY draggable if more than 1 item
+              draggable={experience.length > 1}
               onDragStart={() => setDraggedItem({ index, type: 'experience' })}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleDrop(e, index, experience, setExperience, 'experience')}
@@ -332,20 +338,17 @@ export default function ResumeBuilder() {
                 backgroundColor: draggedItem.index === index && draggedItem.type === 'experience' ? '#1e1e2f' : '#33334d',
                 borderRadius: '8px',
                 border: '1px dashed #555',
-                cursor: experience.length > 1 ? 'grab' : 'default', // Change cursor conditionally
+                cursor: experience.length > 1 ? 'grab' : 'default',
                 opacity: draggedItem.index === index && draggedItem.type === 'experience' ? 0.5 : 1,
                 transition: 'all 0.2s ease'
               }}
             >
               <div style={{ display: 'flex', justifyContent: experience.length > 1 ? 'space-between' : 'flex-end', marginBottom: '15px' }}>
-                
-                {/* Only render the Drag Handle if there is more than 1 item */}
                 {experience.length > 1 && (
                   <span style={{ fontSize: '20px', color: '#888', cursor: 'grab' }} title="Drag to reorder your Experiences">
                     ☰ <span style={{ fontSize: '14px', marginLeft: '5px' }}>Drag to Reorder your Experiences</span>
                   </span>
                 )}
-
                 <button 
                   type="button" 
                   onClick={() => setExperience(experience.filter((_, i) => i !== index))}
@@ -367,13 +370,13 @@ export default function ResumeBuilder() {
           <button type="button" onClick={() => handleAddArrayItem(setExperience, experience, { company: '', role: '', duration: '', description: '' })} style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+ Add Experience</button>
         </div>
 
-        {/* --- Education (Conditionally Draggable) --- */}
+        {/* --- Education --- */}
         <div style={sectionStyle}>
           <h3 style={{ marginTop: 0, borderBottom: '1px solid #444', paddingBottom: '10px' }}>Education</h3>
           {education.map((edu, index) => (
             <div 
               key={index} 
-              draggable={education.length > 1} // ONLY draggable if more than 1 item
+              draggable={education.length > 1}
               onDragStart={() => setDraggedItem({ index, type: 'education' })}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleDrop(e, index, education, setEducation, 'education')}
@@ -383,20 +386,17 @@ export default function ResumeBuilder() {
                 backgroundColor: draggedItem.index === index && draggedItem.type === 'education' ? '#1e1e2f' : '#33334d',
                 borderRadius: '8px',
                 border: '1px dashed #555',
-                cursor: education.length > 1 ? 'grab' : 'default', // Change cursor conditionally
+                cursor: education.length > 1 ? 'grab' : 'default',
                 opacity: draggedItem.index === index && draggedItem.type === 'education' ? 0.5 : 1,
                 transition: 'all 0.2s ease'
               }}
             >
               <div style={{ display: 'flex', justifyContent: education.length > 1 ? 'space-between' : 'flex-end', marginBottom: '15px' }}>
-                
-                {/* Only render the Drag Handle if there is more than 1 item */}
                 {education.length > 1 && (
                   <span style={{ fontSize: '20px', color: '#888', cursor: 'grab' }} title="Drag to reorder your Educations">
                     ☰ <span style={{ fontSize: '14px', marginLeft: '5px' }}>Drag to Reorder your Educations</span>
                   </span>
                 )}
-
                 <button 
                   type="button" 
                   onClick={() => setEducation(education.filter((_, i) => i !== index))}
@@ -417,13 +417,13 @@ export default function ResumeBuilder() {
           <button type="button" onClick={() => handleAddArrayItem(setEducation, education, { institution: '', degree: '', graduationYear: '', gpa: '' })} style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+ Add Education</button>
         </div>
 
-        {/* --- Projects (Conditionally Draggable) --- */}
+        {/* --- Projects --- */}
         <div style={sectionStyle}>
           <h3 style={{ marginTop: 0, borderBottom: '1px solid #444', paddingBottom: '10px' }}>Projects</h3>
           {projects.map((proj, index) => (
             <div 
               key={index} 
-              draggable={projects.length > 1} // ONLY draggable if more than 1 item
+              draggable={projects.length > 1}
               onDragStart={() => setDraggedItem({ index, type: 'projects' })}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleDrop(e, index, projects, setProjects, 'projects')}
@@ -433,20 +433,17 @@ export default function ResumeBuilder() {
                 backgroundColor: draggedItem.index === index && draggedItem.type === 'projects' ? '#1e1e2f' : '#33334d',
                 borderRadius: '8px',
                 border: '1px dashed #555',
-                cursor: projects.length > 1 ? 'grab' : 'default', // Change cursor conditionally
+                cursor: projects.length > 1 ? 'grab' : 'default',
                 opacity: draggedItem.index === index && draggedItem.type === 'projects' ? 0.5 : 1,
                 transition: 'all 0.2s ease'
               }}
             >
               <div style={{ display: 'flex', justifyContent: projects.length > 1 ? 'space-between' : 'flex-end', marginBottom: '15px' }}>
-                
-                {/* Only render the Drag Handle if there is more than 1 item */}
                 {projects.length > 1 && (
                   <span style={{ fontSize: '20px', color: '#888', cursor: 'grab' }} title="Drag to reorder your Projects">
                     ☰ <span style={{ fontSize: '14px', marginLeft: '5px' }}>Drag to Reorder your Projects</span>
                   </span>
                 )}
-
                 <button 
                   type="button" 
                   onClick={() => setProjects(projects.filter((_, i) => i !== index))}
@@ -472,6 +469,42 @@ export default function ResumeBuilder() {
           {id ? 'Update Existing Resume' : 'Save New Resume'}
         </button>
       </form>
+
+      {/* --- NEW: Success Action Modal --- */}
+      {showSuccessModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(4px)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#1e1e2f', padding: '40px', borderRadius: '12px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.5)', textAlign: 'center', maxWidth: '400px', border: '1px solid #333'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '10px' }}>🎉</div>
+            <h2 style={{ color: 'white', marginTop: 0 }}>Successfully Saved!</h2>
+            <p style={{ color: '#a0aec0', marginBottom: '30px' }}>
+              Your resume data has been securely saved. What would you like to do next?
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <button 
+                onClick={() => navigate(`/resume-viewer/${savedResumeId}`)}
+                style={{ padding: '12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                👁️ View Rendered Resume
+              </button>
+              
+              <button 
+                onClick={() => setShowSuccessModal(false)}
+                style={{ padding: '12px', backgroundColor: 'transparent', color: '#a0aec0', border: '1px solid #4a5568', borderRadius: '6px', fontSize: '16px', cursor: 'pointer' }}
+              >
+                Keep Editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
