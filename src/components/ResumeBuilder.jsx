@@ -7,6 +7,9 @@ export default function ResumeBuilder() {
   const navigate = useNavigate();
   const { id } = useParams(); 
   
+  // --- Centalized API Configuration ---
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://resume-qa-backend-service.onrender.com';
+  
   const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
   const [isFetching, setIsFetching] = useState(false); 
 
@@ -40,7 +43,8 @@ export default function ResumeBuilder() {
         const token = localStorage.getItem('jwt_token');
         
         try {
-          const response = await axios.get('http://localhost:8080/api/resumes', {
+          // --- UPDATED to use API_BASE_URL ---
+          const response = await axios.get(`${API_BASE_URL}/api/resumes`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
@@ -66,7 +70,7 @@ export default function ResumeBuilder() {
       
       fetchExistingResume();
     }
-  }, [id]);
+  }, [id, API_BASE_URL]);
 
   // --- The Auto-Resizing Photo Handler ---
   const handlePhotoUpload = (e) => {
@@ -158,12 +162,14 @@ export default function ResumeBuilder() {
     try {
       let response;
       if (id) {
-        response = await axios.put(`http://localhost:8080/api/resumes/${id}`, payload, {
+        // --- UPDATED to use API_BASE_URL ---
+        response = await axios.put(`${API_BASE_URL}/api/resumes/${id}`, payload, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
         setSaveStatus({ message: `Success! Resume updated.`, type: 'success' });
       } else {
-        response = await axios.post('http://localhost:8080/api/resumes', payload, {
+        // --- UPDATED to use API_BASE_URL ---
+        response = await axios.post(`${API_BASE_URL}/api/resumes`, payload, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
         setSaveStatus({ message: `Success! New resume saved.`, type: 'success' });
