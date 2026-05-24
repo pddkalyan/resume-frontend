@@ -13,6 +13,9 @@ export default function ResumeViewer() {
   const navigate = useNavigate();
   const { id } = useParams();
 
+  // --- Centralized API Configuration ---
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://resume-qa-backend-service.onrender.com';
+
   // <-- 2. NEW: Fetch the photo from sessionStorage -->
   useEffect(() => {
     const savedPhoto = sessionStorage.getItem('resume_photo');
@@ -36,7 +39,8 @@ export default function ResumeViewer() {
       }
 
       try {
-        const response = await axios.get(`http://localhost:8080/api/resumes/${id}`, {
+        // --- UPDATED to use API_BASE_URL ---
+        const response = await axios.get(`${API_BASE_URL}/api/resumes/${id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -54,7 +58,7 @@ export default function ResumeViewer() {
     };
 
     fetchResume();
-  }, [id, navigate]);
+  }, [id, navigate, API_BASE_URL]);
 
   const handlePrint = () => {
     window.print();
