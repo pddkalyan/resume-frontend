@@ -13,6 +13,9 @@ export default function ResumeBuilder() {
   const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
   const [isFetching, setIsFetching] = useState(false); 
 
+  // --- NEW: Better UX Loading State ---
+  const [isSaving, setIsSaving] = useState(false);
+
   // --- Expanded State matching the Backend Model ---
   const [title, setTitle] = useState('My Full Stack Resume');
   const [personalInfo, setPersonalInfo] = useState({ 
@@ -30,7 +33,7 @@ export default function ResumeBuilder() {
   // --- Drag and Drop State ---
   const [draggedItem, setDraggedItem] = useState({ index: null, type: null });
 
-  // --- NEW: Modal State ---
+  // --- Modal State ---
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [savedResumeId, setSavedResumeId] = useState(id || null);
 
@@ -79,8 +82,6 @@ export default function ResumeBuilder() {
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    setSaveStatus({ message: 'Processing photo...', type: 'info' });
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -147,8 +148,9 @@ export default function ResumeBuilder() {
   const handleSaveResume = async (e) => {
     e.preventDefault();
     
-    // UPDATED: Removed MongoDB reference and fixed status type
-    setSaveStatus({ message: 'Saving your resume...', type: 'info' }); 
+    // UPDATED: Use button loading state instead of a popup
+    setIsSaving(true);
+    setSaveStatus({ message: '', type: '' }); // Clear any old errors
 
     const token = localStorage.getItem('jwt_token');
 
@@ -169,18 +171,17 @@ export default function ResumeBuilder() {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
         setSaveStatus({ message: `Success! Resume updated.`, type: 'success' });
-        setSavedResumeId(id); // Ensure ID is set for the modal
-        setShowSuccessModal(true); // Trigger Modal
+        setSavedResumeId(id); 
+        setShowSuccessModal(true); 
       } else {
         response = await axios.post(`${API_BASE_URL}/api/resumes`, payload, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
         setSaveStatus({ message: `Success! New resume saved.`, type: 'success' });
-        setSavedResumeId(response.data.id); // Save new ID for the modal
+        setSavedResumeId(response.data.id); 
         
-        // Quietly update the URL to edit mode without full reload
         window.history.replaceState(null, '', `/resume-builder/${response.data.id}`);
-        setShowSuccessModal(true); // Trigger Modal
+        setShowSuccessModal(true); 
       }
     } catch (error) {
       if (error.response && error.response.status === 403) {
@@ -189,6 +190,9 @@ export default function ResumeBuilder() {
       } else {
         setSaveStatus({ message: 'Failed to save resume. Please try again.', type: 'error' });
       }
+    } finally {
+      // ALWAYS turn off the loading state, even if it fails
+      setIsSaving(false);
     }
   };
 
@@ -223,7 +227,7 @@ export default function ResumeBuilder() {
               if (id) {
                 navigate(`/resume-viewer/${id}`);
               } else {
-                setSaveStatus({ message: 'Please save the resume first before viewing!', type: 'info' });
+                setSaveStatus({ message: 'Please save the resume first before viewing!', type: 'error' });
               }
             }} 
             style={{ padding: '8px 16px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '10px' }}
@@ -465,12 +469,22 @@ export default function ResumeBuilder() {
           <button type="button" onClick={() => handleAddArrayItem(setProjects, projects, { title: '', description: '', technologiesUsed: '', link: '' })} style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+ Add Project</button>
         </div>
 
-        <button type="submit" style={{ width: '100%', padding: '15px', backgroundColor: '#28a745', color: 'white', fontSize: '18px', fontWeight: 'bold', border: 'none', borderRadius: '8px', cursor: 'pointer', marginTop: '10px' }}>
-          {id ? 'Update Existing Resume' : 'Save New Resume'}
+        {/* UPDATED: Dynamic Button with disabled state and color change */}
+        <button 
+          type="submit" 
+          disabled={isSaving}
+          style={{ 
+            width: '100%', padding: '15px', 
+            backgroundColor: isSaving ? '#6c757d' : '#28a745', 
+            color: 'white', fontSize: '18px', fontWeight: 'bold', border: 'none', 
+            borderRadius: '8px', cursor: isSaving ? 'not-allowed' : 'pointer', marginTop: '10px' 
+          }}
+        >
+          {isSaving ? '⏳ Saving...' : (id ? 'Update Existing Resume' : 'Save New Resume')}
         </button>
       </form>
 
-      {/* --- NEW: Success Action Modal --- */}
+      {/* --- Success Action Modal --- */}
       {showSuccessModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
