@@ -5,8 +5,8 @@ import StatusPopup from './StatusPopup';
 
 // Pull the URL from Vite's environment variables. 
 // Adding a fallback to localhost ensures it doesn't crash if the .env is missing.
-// const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-const API_BASE_URL = "https://resume-qa-backend-service.onrender.com"
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// const API_BASE_URL = "https://resume-qa-backend-service.onrender.com"
 
 
 export default function Dashboard() {
