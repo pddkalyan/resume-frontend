@@ -15,7 +15,7 @@ export default function ResumeBuilder() {
   const [isFetching, setIsFetching] = useState(false); 
   const [isSaving, setIsSaving] = useState(false);
 
-  const [title, setTitle] = useState('My Full Stack Resume');
+  const [title, setTitle] = useState('My Resume');
   const [personalInfo, setPersonalInfo] = useState({ 
     fullName: '', email: '', phone: '', linkedInUrl: '', githubUrl: '' 
   });
