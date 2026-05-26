@@ -36,13 +36,36 @@ export default function AtsScannerModal({ isOpen, onClose, resumeData }) {
         }
       );
       
-      // Parse if backend returns a stringified JSON
-      const parsedData = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-      setScanResult(parsedData);
+      let rawData = response.data;
+      let parsedData;
+
+      // 1. If Gemini returned a string, we need to clean and parse it
+      if (typeof rawData === 'string') {
+        // Strip out markdown code blocks (```json ... ```)
+        const cleanedString = rawData.replace(/```json/g, '').replace(/```/g, '').trim();
+        try {
+          parsedData = JSON.parse(cleanedString);
+        } catch (e) {
+          console.error("Failed to parse cleaned string as JSON:", cleanedString);
+          throw new Error("Invalid format returned from AI");
+        }
+      } else {
+        // It was already parsed by Axios
+        parsedData = rawData;
+      }
+
+      // 2. Normalize the keys so the UI always gets what it expects
+      const normalizedResult = {
+        matchPercentage: parsedData.matchPercentage || parsedData.matchScore || parsedData.score || 0,
+        missingKeywords: parsedData.missingKeywords || parsedData.missingSkills || [],
+        matchingKeywords: parsedData.matchingKeywords || parsedData.matchingSkills || parsedData.foundKeywords || []
+      };
+
+      setScanResult(normalizedResult);
       
     } catch (err) {
-      console.error(err);
-      setError('Failed to scan resume. Please try again.');
+      console.error("ATS Scan Error:", err);
+      setError('Failed to scan resume. Please ensure the Job Description is valid and try again.');
     } finally {
       setIsScanning(false);
     }
@@ -107,22 +130,30 @@ export default function AtsScannerModal({ isOpen, onClose, resumeData }) {
             <div style={{ marginBottom: '20px' }}>
               <h3 style={{ color: '#ef4444', borderBottom: '1px solid #444', paddingBottom: '10px' }}>Missing Keywords to Add:</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '10px' }}>
-                {scanResult.missingKeywords?.map((kw, i) => (
-                  <span key={i} style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', padding: '6px 12px', borderRadius: '4px', fontSize: '14px', border: '1px solid #ef4444' }}>
-                    {kw}
-                  </span>
-                ))}
+                {scanResult.missingKeywords?.length > 0 ? (
+                  scanResult.missingKeywords.map((kw, i) => (
+                    <span key={i} style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', padding: '6px 12px', borderRadius: '4px', fontSize: '14px', border: '1px solid #ef4444' }}>
+                      {kw}
+                    </span>
+                  ))
+                ) : (
+                  <span style={{ color: '#a0aec0', fontSize: '14px' }}>No missing keywords found! You are a great match.</span>
+                )}
               </div>
             </div>
 
             <div>
               <h3 style={{ color: '#10b981', borderBottom: '1px solid #444', paddingBottom: '10px' }}>Matching Keywords Found:</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '10px' }}>
-                {scanResult.matchingKeywords?.map((kw, i) => (
-                  <span key={i} style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#6ee7b7', padding: '6px 12px', borderRadius: '4px', fontSize: '14px', border: '1px solid #10b981' }}>
-                    {kw}
-                  </span>
-                ))}
+                {scanResult.matchingKeywords?.length > 0 ? (
+                  scanResult.matchingKeywords.map((kw, i) => (
+                    <span key={i} style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#6ee7b7', padding: '6px 12px', borderRadius: '4px', fontSize: '14px', border: '1px solid #10b981' }}>
+                      {kw}
+                    </span>
+                  ))
+                ) : (
+                  <span style={{ color: '#a0aec0', fontSize: '14px' }}>No direct keyword matches found. Consider adding relevant skills.</span>
+                )}
               </div>
             </div>
 
