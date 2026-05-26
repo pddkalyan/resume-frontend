@@ -4,6 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import StatusPopup from './StatusPopup';
 import AtsScannerModal from './AtsScannerModal'; 
 import CoverLetterModal from './CoverLetterModal';
+import TemplateGalleryModal from './TemplateGalleryModal';
+import MagicImportModal from './MagicImportModal'; 
 
 export default function ResumeBuilder() {
   const navigate = useNavigate();
@@ -33,6 +35,8 @@ export default function ResumeBuilder() {
   const [savedResumeId, setSavedResumeId] = useState(id || null);
   const [showAtsModal, setShowAtsModal] = useState(false);
   const [showCoverLetterModal, setShowCoverLetterModal] = useState(false);
+  const [showGalleryModal, setShowGalleryModal] = useState(false);
+  const [showMagicImportModal, setShowMagicImportModal] = useState(false); 
 
   useEffect(() => {
     const savedPhoto = sessionStorage.getItem('resume_photo');
@@ -137,11 +141,22 @@ export default function ResumeBuilder() {
     navigate('/');
   };
 
-  // --- RESTORED & BULLETPROOF SAVE LOGIC ---
+  const handleMagicImportSuccess = (extractedData) => {
+    if (extractedData.personalInfo) setPersonalInfo(extractedData.personalInfo);
+    if (extractedData.skills) setSkills(extractedData.skills);
+    
+    if (extractedData.experience && extractedData.experience.length > 0) setExperience(extractedData.experience);
+    if (extractedData.education && extractedData.education.length > 0) setEducation(extractedData.education);
+    if (extractedData.projects && extractedData.projects.length > 0) setProjects(extractedData.projects);
+    
+    setSaveStatus({ message: '✨ Magic Import Complete! Please review your data.', type: 'success' });
+    setTimeout(() => setSaveStatus({ message: '', type: '' }), 4000);
+  };
+
   const handleSaveResume = async (e) => {
     e.preventDefault();
     setIsSaving(true);
-    setSaveStatus({ message: '', type: '' }); // Clear any existing toasts
+    setSaveStatus({ message: '', type: '' }); 
 
     const token = localStorage.getItem('jwt_token');
 
@@ -172,10 +187,9 @@ export default function ResumeBuilder() {
         window.history.replaceState(null, '', `/resume-builder/${response.data.id}`);
       }
 
-      // The exact 2-second timing logic for the UX flow
       setTimeout(() => {
-        setSaveStatus({ message: '', type: '' }); // 1. Hide the green success toast
-        setShowSuccessModal(true);                // 2. Open the Action Modal
+        setSaveStatus({ message: '', type: '' }); 
+        setShowSuccessModal(true);                
       }, 2000);
 
     } catch (error) {
@@ -184,7 +198,6 @@ export default function ResumeBuilder() {
         handleLogout();
       } else {
         setSaveStatus({ message: 'Failed to save resume. Please try again.', type: 'error' });
-        // Auto-hide error so it doesn't get stuck on screen
         setTimeout(() => setSaveStatus({ message: '', type: '' }), 3000);
       }
     } finally {
@@ -212,13 +225,27 @@ export default function ResumeBuilder() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h2 style={{ margin: 0 }}>📝 Enterprise Resume Builder {id && <span style={{fontSize: '14px', color: '#eab308'}}>(Edit Mode)</span>}</h2>
         <div>
-          <button onClick={() => navigate('/dashboard')} style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '10px' }}>
+          <button 
+            onClick={() => navigate('/dashboard')} 
+            title="Return to your dashboard. Unsaved changes will be lost." 
+            style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '10px' }}
+          >
             Dashboard
           </button>
           
           <button 
             type="button" 
+            onClick={() => setShowMagicImportModal(true)} 
+            title="Auto-fill your details from an old resume or LinkedIn screenshot. Supported files: .PDF, .PNG, .JPG" 
+            style={{ padding: '8px 16px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '10px', fontWeight: 'bold' }}
+          >
+            🪄 Magic Import
+          </button>
+          
+          <button 
+            type="button" 
             onClick={() => setShowCoverLetterModal(true)} 
+            title="Generate a custom AI cover letter based on your current resume data." 
             style={{ padding: '8px 16px', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '10px', fontWeight: 'bold' }}
           >
             ✍️ AI Cover Letter
@@ -227,6 +254,7 @@ export default function ResumeBuilder() {
           <button 
             type="button" 
             onClick={() => setShowAtsModal(true)} 
+            title="Analyze your resume against a specific Job Description to find missing keywords." 
             style={{ padding: '8px 16px', backgroundColor: '#8b5cf6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '10px', fontWeight: 'bold' }}
           >
             ✨ Pro ATS Scan
@@ -242,12 +270,19 @@ export default function ResumeBuilder() {
                 setTimeout(() => setSaveStatus({ message: '', type: '' }), 2000);
               }
             }} 
+            title="Preview your rendered document in a printable format. Requires saving first." 
             style={{ padding: '8px 16px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '10px' }}
           >
             View Resume
           </button>
 
-          <button onClick={handleLogout} style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Logout</button>
+          <button 
+            onClick={handleLogout} 
+            title="Securely log out of your session." 
+            style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+          >
+            Logout
+          </button>
         </div>
       </div>
 
@@ -259,18 +294,20 @@ export default function ResumeBuilder() {
             <div>
               <label>Resume Title</label>
               <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required style={inputStyle} />
+              {/* --- NEW HINT --- */}
+              <div style={{ fontSize: '12px', color: '#a0aec0', marginTop: '4px' }}>Internal name for your dashboard (e.g., "Java Dev Resume")</div>
             </div>
+            
             <div>
               <label>Design Template</label>
-              <select 
-                value={selectedTemplate} 
-                onChange={(e) => setSelectedTemplate(e.target.value)} 
-                style={inputStyle}
+              <button 
+                type="button" 
+                onClick={() => setShowGalleryModal(true)}
+                title="Browse and select from our library of professional layout designs." 
+                style={{ ...inputStyle, backgroundColor: '#3b82f6', color: 'white', fontWeight: 'bold', cursor: 'pointer', border: 'none', textAlign: 'center' }}
               >
-                <option value="modern">Modern (Sleek & Professional)</option>
-                <option value="classic">Classic (Traditional & Formal)</option>
-                <option value="minimalist">Minimalist (Clean & Spacious)</option>
-              </select>
+                🎨 Browse Pro Templates
+              </button>
             </div>
           </div>
         </div>
@@ -301,7 +338,8 @@ export default function ResumeBuilder() {
                 />
                 <button 
                   type="button" 
-                  onClick={handleRemovePhoto} 
+                  onClick={handleRemovePhoto}
+                  title="Remove your profile photo." 
                   style={{ padding: '8px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
                 >
                   Remove Photo
@@ -309,7 +347,8 @@ export default function ResumeBuilder() {
               </div>
             ) : (
               <label 
-                htmlFor="photo-upload" 
+                htmlFor="photo-upload"
+                title="Upload a headshot image. Recommended format: JPG/PNG." 
                 style={{ display: 'inline-block', padding: '10px 20px', backgroundColor: '#3b82f6', color: 'white', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
               >
                 + Select Photo
@@ -321,7 +360,12 @@ export default function ResumeBuilder() {
         <div style={sectionStyle}>
           <h3 style={{ marginTop: 0, borderBottom: '1px solid #444', paddingBottom: '10px' }}>Personal Details</h3>
           <div style={gridStyle}>
-            <div><label>Full Name</label><input type="text" value={personalInfo.fullName} onChange={(e) => setPersonalInfo({...personalInfo, fullName: e.target.value})} style={inputStyle} /></div>
+            <div>
+              <label>Full Name</label>
+              <input type="text" placeholder="e.g., Jane Doe" value={personalInfo.fullName} onChange={(e) => setPersonalInfo({...personalInfo, fullName: e.target.value})} style={inputStyle} />
+              {/* --- NEW HINT --- */}
+              <div style={{ fontSize: '12px', color: '#a0aec0', marginTop: '4px' }}>This appears at the very top of your rendered document.</div>
+            </div>
             <div><label>Email Address</label><input type="email" value={personalInfo.email} onChange={(e) => setPersonalInfo({...personalInfo, email: e.target.value})} style={inputStyle} /></div>
             <div><label>Phone Number</label><input type="text" value={personalInfo.phone} onChange={(e) => setPersonalInfo({...personalInfo, phone: e.target.value})} style={inputStyle} /></div>
             <div><label>LinkedIn URL</label><input type="text" value={personalInfo.linkedInUrl} onChange={(e) => setPersonalInfo({...personalInfo, linkedInUrl: e.target.value})} style={inputStyle} /></div>
@@ -361,6 +405,7 @@ export default function ResumeBuilder() {
                 <button 
                   type="button" 
                   onClick={() => setExperience(experience.filter((_, i) => i !== index))}
+                  title="Remove this work experience entry." 
                   style={{ backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}
                 >
                   ✕ Remove
@@ -376,7 +421,14 @@ export default function ResumeBuilder() {
               <textarea value={exp.description} onChange={(e) => handleArrayChange(setExperience, experience, index, 'description', e.target.value)} style={{ ...inputStyle, minHeight: '100px' }} />
             </div>
           ))}
-          <button type="button" onClick={() => handleAddArrayItem(setExperience, experience, { company: '', role: '', duration: '', description: '' })} style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+ Add Experience</button>
+          <button 
+            type="button" 
+            onClick={() => handleAddArrayItem(setExperience, experience, { company: '', role: '', duration: '', description: '' })} 
+            title="Add a new blank work experience entry." 
+            style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+          >
+            + Add Experience
+          </button>
         </div>
 
         <div style={sectionStyle}>
@@ -406,6 +458,7 @@ export default function ResumeBuilder() {
                 <button 
                   type="button" 
                   onClick={() => setEducation(education.filter((_, i) => i !== index))}
+                  title="Remove this education entry." 
                   style={{ backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}
                 >
                   ✕ Remove
@@ -420,7 +473,14 @@ export default function ResumeBuilder() {
               </div>
             </div>
           ))}
-          <button type="button" onClick={() => handleAddArrayItem(setEducation, education, { institution: '', degree: '', graduationYear: '', gpa: '' })} style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+ Add Education</button>
+          <button 
+            type="button" 
+            onClick={() => handleAddArrayItem(setEducation, education, { institution: '', degree: '', graduationYear: '', gpa: '' })}
+            title="Add a new blank education entry." 
+            style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+          >
+            + Add Education
+          </button>
         </div>
 
         <div style={sectionStyle}>
@@ -450,6 +510,7 @@ export default function ResumeBuilder() {
                 <button 
                   type="button" 
                   onClick={() => setProjects(projects.filter((_, i) => i !== index))}
+                  title="Remove this project entry." 
                   style={{ backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}
                 >
                   ✕ Remove
@@ -465,12 +526,20 @@ export default function ResumeBuilder() {
               <textarea value={proj.description} onChange={(e) => handleArrayChange(setProjects, projects, index, 'description', e.target.value)} style={{ ...inputStyle, minHeight: '80px' }} />
             </div>
           ))}
-          <button type="button" onClick={() => handleAddArrayItem(setProjects, projects, { title: '', description: '', technologiesUsed: '', link: '' })} style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>+ Add Project</button>
+          <button 
+            type="button" 
+            onClick={() => handleAddArrayItem(setProjects, projects, { title: '', description: '', technologiesUsed: '', link: '' })} 
+            title="Add a new blank project entry." 
+            style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+          >
+            + Add Project
+          </button>
         </div>
 
         <button 
           type="submit" 
           disabled={isSaving}
+          title="Save this resume securely to your account." 
           style={{ 
             width: '100%', padding: '15px', 
             backgroundColor: isSaving ? '#6c757d' : '#28a745', 
@@ -550,6 +619,19 @@ export default function ResumeBuilder() {
         isOpen={showCoverLetterModal} 
         onClose={() => setShowCoverLetterModal(false)} 
         resumeData={{ title, personalInfo, skills, experience, education, projects }} 
+      />
+
+      <TemplateGalleryModal 
+        isOpen={showGalleryModal} 
+        onClose={() => setShowGalleryModal(false)}
+        currentTemplateId={selectedTemplate}
+        onSelectTemplate={(newTemplateId) => setSelectedTemplate(newTemplateId)}
+      />
+
+      <MagicImportModal 
+        isOpen={showMagicImportModal} 
+        onClose={() => setShowMagicImportModal(false)}
+        onImportSuccess={handleMagicImportSuccess}
       />
 
     </div>

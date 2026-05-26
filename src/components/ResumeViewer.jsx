@@ -7,16 +7,18 @@ export default function ResumeViewer() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // <-- 1. NEW: State to hold the photo -->
+  // State to hold the photo
   const [photo, setPhoto] = useState(null); 
   
+  // NEW: State to hold the database template config
+  const [templateConfig, setTemplateConfig] = useState(null);
+
   const navigate = useNavigate();
   const { id } = useParams();
 
-  // --- Centralized API Configuration ---
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://resume-qa-backend-service.onrender.com';
 
-  // <-- 2. NEW: Fetch the photo from sessionStorage -->
+  // Fetch the photo from sessionStorage
   useEffect(() => {
     const savedPhoto = sessionStorage.getItem('resume_photo');
     if (savedPhoto) {
@@ -25,7 +27,7 @@ export default function ResumeViewer() {
   }, []);
 
   useEffect(() => {
-    const fetchResume = async () => {
+    const fetchResumeAndConfig = async () => {
       const token = localStorage.getItem('jwt_token');
       if (!token) {
         navigate('/');
@@ -39,12 +41,28 @@ export default function ResumeViewer() {
       }
 
       try {
-        // --- UPDATED to use API_BASE_URL ---
+        // 1. Fetch the user data
         const response = await axios.get(`${API_BASE_URL}/api/resumes/${id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        setResume(response.data);
+        const resumeData = response.data;
+        setResume(resumeData);
+
+        // 2. NEW: Fetch the database template rules
+        if (resumeData.selectedTemplate) {
+            try {
+                // First try to fetch it as a database template ID (e.g., "tpl_modern_001")
+                const templateResponse = await axios.get(`${API_BASE_URL}/api/templates/${resumeData.selectedTemplate}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                setTemplateConfig(templateResponse.data.config);
+            } catch (err) {
+                // If it fails, they are probably using an old string like "modern" or "classic"
+                console.log("Template not found in DB, falling back to legacy theme.");
+                setTemplateConfig(null); 
+            }
+        }
         
       } catch (err) {
         setError("Failed to fetch resume data.");
@@ -57,7 +75,7 @@ export default function ResumeViewer() {
       }
     };
 
-    fetchResume();
+    fetchResumeAndConfig();
   }, [id, navigate, API_BASE_URL]);
 
   const handlePrint = () => {
@@ -68,8 +86,8 @@ export default function ResumeViewer() {
   if (error) return <div style={{ color: '#f87171', textAlign: 'center', marginTop: '50px' }}>{error}</div>;
   if (!resume) return null;
 
-  // --- THE TEMPLATE ENGINE ---
-  const themeStyles = {
+  // --- THE TEMPLATE ENGINE (Upgraded to accept Database Configs) ---
+  const legacyThemeStyles = {
     modern: {
       fontFamily: "'Segoe UI', Roboto, Helvetica, sans-serif",
       headerBg: '#2b6cb0', 
@@ -99,8 +117,25 @@ export default function ResumeViewer() {
     }
   };
 
-  const activeTheme = themeStyles[resume.selectedTemplate] || themeStyles.modern;
+  // If we found database rules, map them to our theme styles! Otherwise, use the legacy dictionary.
+  let activeTheme;
+  
+  if (templateConfig) {
+      activeTheme = {
+          fontFamily: templateConfig.fontFamily || "'Segoe UI', sans-serif",
+          headerBg: templateConfig.primaryColor || '#2b6cb0',
+          headerColor: 'white', // Assume white text on colored backgrounds
+          headerAlign: templateConfig.layoutStyle === 'single-column-centered' ? 'center' : 'left',
+          sectionBorder: `2px solid ${templateConfig.primaryColor || '#2b6cb0'}`,
+          titleColor: templateConfig.primaryColor || '#2b6cb0',
+          photoStyle: '50%' 
+      };
+  } else {
+      activeTheme = legacyThemeStyles[resume.selectedTemplate] || legacyThemeStyles.modern;
+  }
 
+
+  // EVERYTHING BELOW THIS LINE IS YOUR EXACT, UNTOUCHED ORIGINAL HTML
   return (
     <div style={{ padding: '20px', minHeight: '100vh', backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       
