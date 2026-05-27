@@ -149,7 +149,42 @@ export default function ResumeBuilder() {
     if (extractedData.education && extractedData.education.length > 0) setEducation(extractedData.education);
     if (extractedData.projects && extractedData.projects.length > 0) setProjects(extractedData.projects);
     
-    setSaveStatus({ message: '✨ Magic Import Complete! Please review your data.', type: 'success' });
+    setSaveStatus({ message: '✨ Data Auto-Filled Successfully!', type: 'success' });
+    setTimeout(() => setSaveStatus({ message: '', type: '' }), 4000);
+  };
+
+  // --- NEW: Handle saving the Cloned Design to MongoDB ---
+  const handleMagicCloneSuccess = async (clonedDesignData) => {
+    setSaveStatus({ message: '⏳ Saving new AI template to database...', type: 'success' });
+    const token = localStorage.getItem('jwt_token');
+
+    // Create the template payload
+    const templatePayload = {
+        templateId: `tpl_custom_${Date.now()}`,
+        name: clonedDesignData.name || "Custom AI Design",
+        thumbnailUrl: "https://placehold.co/400x600/10b981/white?text=Custom+AI+Design",
+        domains: clonedDesignData.domains || ["Custom"],
+        baseComponent: "CustomHtmlLayout",
+        config: {
+            html: clonedDesignData.html // The raw HTML from Gemini
+        },
+        pro: true
+    };
+
+    try {
+        // Send to standard templates endpoint (Make sure your backend permits POST /api/templates)
+        await axios.post(`${API_BASE_URL}/api/templates`, templatePayload, {
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        });
+
+        // Instantly switch the user's dropdown to use this new template!
+        setSelectedTemplate(templatePayload.templateId);
+        setSaveStatus({ message: '✨ Design Cloned! Click Save to apply it.', type: 'success' });
+
+    } catch (err) {
+        console.error("Failed to save custom template to DB", err);
+        setSaveStatus({ message: 'Design cloned, but failed to save to database.', type: 'error' });
+    }
     setTimeout(() => setSaveStatus({ message: '', type: '' }), 4000);
   };
 
@@ -294,7 +329,6 @@ export default function ResumeBuilder() {
             <div>
               <label>Resume Title</label>
               <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required style={inputStyle} />
-              {/* --- NEW HINT --- */}
               <div style={{ fontSize: '12px', color: '#a0aec0', marginTop: '4px' }}>Internal name for your dashboard (e.g., "Java Dev Resume")</div>
             </div>
             
@@ -363,7 +397,6 @@ export default function ResumeBuilder() {
             <div>
               <label>Full Name</label>
               <input type="text" placeholder="e.g., Jane Doe" value={personalInfo.fullName} onChange={(e) => setPersonalInfo({...personalInfo, fullName: e.target.value})} style={inputStyle} />
-              {/* --- NEW HINT --- */}
               <div style={{ fontSize: '12px', color: '#a0aec0', marginTop: '4px' }}>This appears at the very top of your rendered document.</div>
             </div>
             <div><label>Email Address</label><input type="email" value={personalInfo.email} onChange={(e) => setPersonalInfo({...personalInfo, email: e.target.value})} style={inputStyle} /></div>
@@ -628,10 +661,12 @@ export default function ResumeBuilder() {
         onSelectTemplate={(newTemplateId) => setSelectedTemplate(newTemplateId)}
       />
 
+      {/* --- NEW: MAGIC IMPORT MODAL PASSED THE CLONE HANDLER --- */}
       <MagicImportModal 
         isOpen={showMagicImportModal} 
         onClose={() => setShowMagicImportModal(false)}
         onImportSuccess={handleMagicImportSuccess}
+        onCloneSuccess={handleMagicCloneSuccess} // <-- NEW BINDING
       />
 
     </div>

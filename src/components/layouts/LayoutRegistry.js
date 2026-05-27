@@ -1,7 +1,6 @@
-import ModernLayout from './ModernLayout';
-import ClassicLayout from './ClassicLayout';
-// If a user selects a template with a base component we haven't built yet, use Modern as a fallback
-import FallbackLayout from './ModernLayout'; 
+import ModernLayout from "./ModernLayout";
+import ClassicLayout from "./ClassicLayout";
+import CustomHtmlLayout from "./CustomHtmlLayout";
 
 export const getLayoutComponent = (baseComponentName) => {
   switch (baseComponentName) {
@@ -9,8 +8,10 @@ export const getLayoutComponent = (baseComponentName) => {
       return ModernLayout;
     case 'ClassicLayout':
       return ClassicLayout;
+    case 'CustomHtmlLayout': 
+      return CustomHtmlLayout;
     default:
       console.warn(`Layout ${baseComponentName} not found. Using fallback.`);
-      return FallbackLayout; 
+      return ModernLayout; 
   }
 };

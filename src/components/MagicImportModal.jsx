@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
 
-export default function MagicImportModal({ isOpen, onClose, onImportSuccess }) {
+export default function MagicImportModal({ isOpen, onClose, onImportSuccess, onCloneSuccess }) {
   const [file, setFile] = useState(null);
-  const [isExtracting, setIsExtracting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processType, setProcessType] = useState(''); // 'DATA' or 'DESIGN'
   const [error, setError] = useState('');
   
   const fileInputRef = useRef(null);
@@ -34,13 +35,14 @@ export default function MagicImportModal({ isOpen, onClose, onImportSuccess }) {
     }
   };
 
-  const handleExtract = async () => {
+  const handleProcess = async (type) => {
     if (!file) {
       setError('Please select a file first.');
       return;
     }
 
-    setIsExtracting(true);
+    setIsProcessing(true);
+    setProcessType(type);
     setError('');
     const token = localStorage.getItem('jwt_token');
 
@@ -48,29 +50,37 @@ export default function MagicImportModal({ isOpen, onClose, onImportSuccess }) {
     formData.append('file', file);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/resumes/extract`, formData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data' // Required for file uploads
-        }
-      });
+      if (type === 'DATA') {
+        const response = await axios.post(`${API_BASE_URL}/api/resumes/extract`, formData, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+        });
 
-      // Parse the JSON safely in case Gemini wrapped it in markdown or returned a string
-      let parsedData = response.data;
-      if (typeof parsedData === 'string') {
-        const cleanedString = parsedData.replace(/```json/g, '').replace(/```/g, '').trim();
-        parsedData = JSON.parse(cleanedString);
+        let parsedData = response.data;
+        if (typeof parsedData === 'string') {
+          const cleanedString = parsedData.replace(/```json/g, '').replace(/```/g, '').trim();
+          parsedData = JSON.parse(cleanedString);
+        }
+        onImportSuccess(parsedData);
+
+      } else if (type === 'DESIGN') {
+        const response = await axios.post(`${API_BASE_URL}/api/resumes/clone-design`, formData, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+        });
+        
+        if(onCloneSuccess) {
+            onCloneSuccess(response.data);
+        }
       }
 
-      onImportSuccess(parsedData);
-      setFile(null); // Reset for next time
+      setFile(null);
       onClose();
 
     } catch (err) {
       console.error("Extraction Error:", err);
-      setError('Failed to extract data. Please ensure the file is a readable PDF or Image.');
+      setError(`Failed to process ${type === 'DATA' ? 'data' : 'design'}. Ensure the file is readable.`);
     } finally {
-      setIsExtracting(false);
+      setIsProcessing(false);
+      setProcessType('');
     }
   };
 
@@ -87,12 +97,12 @@ export default function MagicImportModal({ isOpen, onClose, onImportSuccess }) {
       }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #333', paddingBottom: '15px', marginBottom: '20px' }}>
-          <h2 style={{ margin: 0, color: '#10b981' }}>🪄 Magic AI Import</h2>
-          <button onClick={onClose} disabled={isExtracting} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '24px', cursor: isExtracting ? 'not-allowed' : 'pointer' }}>✕</button>
+          <h2 style={{ margin: 0, color: '#10b981' }}>🪄 Magic AI Assistant</h2>
+          <button onClick={onClose} disabled={isProcessing} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '24px', cursor: isProcessing ? 'not-allowed' : 'pointer' }}>✕</button>
         </div>
 
         <p style={{ color: '#a0aec0', marginBottom: '25px' }}>
-          Upload an old resume (PDF) or a screenshot of your LinkedIn profile. Our AI will extract the text and instantly build your new template!
+          Upload a resume (PDF) or a screenshot. Tell our AI whether you want to extract your text data, or visually clone the design!
         </p>
 
         {/* Drag and Drop Zone */}
@@ -107,38 +117,46 @@ export default function MagicImportModal({ isOpen, onClose, onImportSuccess }) {
             marginBottom: '20px'
           }}
         >
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileSelect} 
-            accept=".pdf,image/png,image/jpeg" 
-            style={{ display: 'none' }} 
-          />
+          <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".pdf,image/png,image/jpeg" style={{ display: 'none' }} />
           
-          <div style={{ fontSize: '40px', marginBottom: '10px' }}>
-            {file ? '📄' : '📁'}
-          </div>
+          <div style={{ fontSize: '40px', marginBottom: '10px' }}>{file ? '📄' : '📁'}</div>
           <div style={{ fontSize: '18px', fontWeight: 'bold', color: file ? '#10b981' : '#fff' }}>
             {file ? file.name : 'Click or Drag & Drop a file here'}
-          </div>
-          <div style={{ fontSize: '14px', color: '#a0aec0', marginTop: '5px' }}>
-            Supports PDF, PNG, JPG
           </div>
         </div>
 
         {error && <div style={{ color: '#ef4444', marginBottom: '20px', fontSize: '14px' }}>{error}</div>}
 
-        <button 
-          onClick={handleExtract}
-          disabled={isExtracting || !file}
-          style={{
-            width: '100%', padding: '15px', borderRadius: '8px', border: 'none', fontWeight: 'bold', fontSize: '16px',
-            backgroundColor: isExtracting ? '#6c757d' : (file ? '#10b981' : '#4a5568'),
-            color: 'white', cursor: (isExtracting || !file) ? 'not-allowed' : 'pointer', transition: 'all 0.2s'
-          }}
-        >
-          {isExtracting ? '🤖 AI is reading your document...' : 'Extract & Auto-Fill'}
-        </button>
+        {/* THE UX FORK */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <button 
+                onClick={() => handleProcess('DATA')}
+                disabled={isProcessing || (!file && !isProcessing)} // Lock unless a file is present or it's currently processing
+                style={{
+                    padding: '15px', borderRadius: '8px', border: '1px solid #10b981', fontWeight: 'bold', fontSize: '15px',
+                    backgroundColor: isProcessing && processType === 'DATA' ? '#6c757d' : 'transparent',
+                    // The Fix: Explicitly force text white while processing
+                    color: isProcessing && processType === 'DATA' ? 'white' : (!file ? '#6c757d' : '#10b981'), 
+                    cursor: (isProcessing || !file) ? 'not-allowed' : 'pointer', transition: 'all 0.2s'
+                }}
+            >
+                {isProcessing && processType === 'DATA' ? '🤖 Auto-filling...' : '📝 Auto-Fill Data'}
+            </button>
+
+            <button 
+                onClick={() => handleProcess('DESIGN')}
+                disabled={isProcessing || (!file && !isProcessing)}
+                style={{
+                    padding: '15px', borderRadius: '8px', border: 'none', fontWeight: 'bold', fontSize: '15px',
+                    backgroundColor: isProcessing && processType === 'DESIGN' ? '#6c757d' : (file ? '#8b5cf6' : '#4a5568'),
+                    // The Fix applied here too just in case
+                    color: isProcessing && processType === 'DESIGN' ? 'white' : (!file ? '#9ca3af' : 'white'), 
+                    cursor: (isProcessing || !file) ? 'not-allowed' : 'pointer', transition: 'all 0.2s'
+                }}
+            >
+                {isProcessing && processType === 'DESIGN' ? '🎨 Cloning...' : '🎨 Clone Design'}
+            </button>
+        </div>
 
       </div>
     </div>

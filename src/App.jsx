@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import ResumeBuilder from './components/ResumeBuilder';
 import ResumeViewer from './components/ResumeViewer';
 import Dashboard from './components/Dashboard';
+import PublicResumeViewer from './components/PublicResumeViewer';
 
 // Backend URL
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -164,6 +165,7 @@ function App() {
           element={<ResumeViewer />}
         />
 
+        <Route path="/v/:shareCode" element={<PublicResumeViewer />} />
         <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>

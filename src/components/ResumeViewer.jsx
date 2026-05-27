@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
+import ShareModal from './ShareModal'; // <-- NEW IMPORT
 
 export default function ResumeViewer() {
   const [resume, setResume] = useState(null);
@@ -12,6 +13,9 @@ export default function ResumeViewer() {
   
   // NEW: State to hold the database template config
   const [templateConfig, setTemplateConfig] = useState(null);
+  
+  // --- NEW: Share Modal State ---
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const navigate = useNavigate();
   const { id } = useParams();
@@ -134,7 +138,6 @@ export default function ResumeViewer() {
       activeTheme = legacyThemeStyles[resume.selectedTemplate] || legacyThemeStyles.modern;
   }
 
-
   // EVERYTHING BELOW THIS LINE IS YOUR EXACT, UNTOUCHED ORIGINAL HTML
   return (
     <div style={{ padding: '20px', minHeight: '100vh', backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -155,9 +158,16 @@ export default function ResumeViewer() {
         <button onClick={() => navigate('/dashboard')} style={{ padding: '10px 20px', backgroundColor: '#4b5563', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
           &larr; Back to Dashboard
         </button>
-        <button onClick={handlePrint} style={{ padding: '10px 20px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-          🖨️ Export PDF / Print
-        </button>
+        <div>
+          {/* --- NEW: Share Button --- */}
+          <button onClick={() => setShowShareModal(true)} style={{ padding: '10px 20px', backgroundColor: '#8b5cf6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginRight: '10px' }}>
+            🔗 Share Link
+          </button>
+          
+          <button onClick={handlePrint} style={{ padding: '10px 20px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+            🖨️ Export PDF / Print
+          </button>
+        </div>
       </div>
 
       {/* --- THE DYNAMIC A4 RESUME DOCUMENT --- */}
@@ -281,6 +291,18 @@ export default function ResumeViewer() {
 
         </div>
       </div>
+
+      {/* --- NEW: RENDER THE SHARE MODAL --- */}
+      {resume && (
+        <ShareModal 
+            isOpen={showShareModal}
+            onClose={() => setShowShareModal(false)}
+            resumeId={resume.id}
+            initialIsPublic={resume.isPublic}
+            initialShareCode={resume.shareCode}
+        />
+      )}
+
     </div>
   );
 }
