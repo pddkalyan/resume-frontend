@@ -2,12 +2,9 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import StatusPopup from './StatusPopup';
-import ShareModal from './ShareModal'; // <-- NEW IMPORT
+import ShareModal from './ShareModal'; 
 
-// Pull the URL from Vite's environment variables. 
-// Adding a fallback to localhost ensures it doesn't crash if the .env is missing.
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-// const API_BASE_URL = "https://resume-qa-backend-service.onrender.com"
 
 export default function Dashboard() {
   const [resumes, setResumes] = useState([]);
@@ -16,7 +13,6 @@ export default function Dashboard() {
   
   const [status, setStatus] = useState({ message: '', type: '' }); 
   
-  // --- NEW: Track which resume we are currently sharing ---
   const [activeShareResume, setActiveShareResume] = useState(null);
   
   const navigate = useNavigate();
@@ -30,7 +26,6 @@ export default function Dashboard() {
       }
 
       try {
-        // 1. Replaced hardcoded URL with dynamic environment variable
         const response = await axios.get(`${API_BASE_URL}/api/resumes`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -119,8 +114,8 @@ export default function Dashboard() {
                   {resume.title || 'Untitled Document'}
                 </h3>
                 
-                {/* --- ENHANCED LIVE UX & VIEW COUNTER --- */}
-                {resume.isPublic && (
+                {/* --- FIX: CHECK BOTH 'public' AND 'isPublic' FOR THE LIVE DOT --- */}
+                {(resume.public || resume.isPublic) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ fontSize: '12px', color: '#94a3b8', backgroundColor: '#1e293b', padding: '4px 8px', borderRadius: '6px' }}>
                         👁️ {resume.viewCount || 0} views
@@ -141,7 +136,6 @@ export default function Dashboard() {
               </p>
             </div>
 
-            {/* --- UPDATED: Grid columns changed to 4 to fit the Share button --- */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', marginTop: '15px' }}>
               <button 
                 onClick={() => navigate(`/resume-viewer/${resume.id}`)} 
@@ -157,7 +151,6 @@ export default function Dashboard() {
                 Edit
               </button>
 
-              {/* --- NEW: SHARE BUTTON --- */}
               <button 
                 onClick={() => setActiveShareResume(resume)} 
                 style={{ padding: '8px', backgroundColor: '#8b5cf6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
@@ -170,14 +163,11 @@ export default function Dashboard() {
                   if (window.confirm(`Are you sure you want to delete "${resume.title || 'this resume'}"?`)) {
                     const token = localStorage.getItem('jwt_token');
                     try {
-                      // 2. Replaced hardcoded URL with dynamic environment variable
                       await axios.delete(`${API_BASE_URL}/api/resumes/${resume.id}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                       });
                       setResumes(resumes.filter(r => r.id !== resume.id));
-                      
                       setStatus({ message: 'Resume deleted successfully!', type: 'success' });
-                      
                     } catch (err) {
                       setStatus({ message: 'Failed to delete the document. Please try again.', type: 'error' });
                     }
@@ -193,16 +183,15 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* --- NEW: RENDER THE SHARE MODAL FOR THE DASHBOARD --- */}
       <ShareModal 
           isOpen={!!activeShareResume}
           onClose={() => {
               setActiveShareResume(null);
-              // Force a refresh of the dashboard to show the updated 'Live' tag if they toggled it
               window.location.reload(); 
           }}
           resumeId={activeShareResume?.id}
-          initialIsPublic={activeShareResume?.isPublic}
+          // --- FIX: Pass the correct property ---
+          initialIsPublic={activeShareResume?.public !== undefined ? activeShareResume.public : activeShareResume?.isPublic}
           initialShareCode={activeShareResume?.shareCode}
       />
 
