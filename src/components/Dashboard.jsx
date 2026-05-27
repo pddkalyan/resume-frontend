@@ -58,6 +58,17 @@ export default function Dashboard() {
   return (
     <div style={{ maxWidth: '1000px', margin: '40px auto', padding: '30px', color: '#fff' }}>
       
+      {/* --- INJECT CSS FOR BLINKING EFFECT --- */}
+      <style>
+        {`
+          @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.2; }
+            100% { opacity: 1; }
+          }
+        `}
+      </style>
+
       <StatusPopup 
         message={status.message} 
         type={status.type} 
@@ -103,11 +114,25 @@ export default function Dashboard() {
           <div key={resume.id} style={{ backgroundColor: '#1e1e2f', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             
             <div>
-              <h3 style={{ margin: '0 0 10px 0', borderBottom: '1px solid #334155', paddingBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
-                {resume.title || 'Untitled Document'}
-                {/* --- VISUAL INDICATOR FOR SHARED STATUS --- */}
-                {resume.isPublic && <span style={{ fontSize: '12px', backgroundColor: '#10b981', color: 'white', padding: '2px 6px', borderRadius: '4px', verticalAlign: 'middle' }}>Live</span>}
-              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #334155', paddingBottom: '10px', marginBottom: '10px' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', color: 'white' }}>
+                  {resume.title || 'Untitled Document'}
+                </h3>
+                
+                {/* --- ENHANCED LIVE UX & VIEW COUNTER --- */}
+                {resume.isPublic && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '12px', color: '#94a3b8', backgroundColor: '#1e293b', padding: '4px 8px', borderRadius: '6px' }}>
+                        👁️ {resume.viewCount || 0} views
+                    </span>
+                    <span style={{ fontSize: '12px', backgroundColor: '#10b981', color: 'white', padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: 'white', borderRadius: '50%', animation: 'pulse 1.5s infinite' }}></span>
+                        Live
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <p style={{ margin: '0 0 5px 0', color: '#94a3b8' }}>
                 <strong>Profile:</strong> {resume.personalInfo?.fullName || 'No Name'}
               </p>
