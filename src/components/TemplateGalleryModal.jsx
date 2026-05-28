@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { getLayoutComponent } from './layouts/LayoutRegistry'; // <-- NEW IMPORT
+import { getLayoutComponent } from './layouts/LayoutRegistry';
+import UpgradeModal from './UpgradeModal'; 
 
-// THE FAKE DATA: Generic placeholders to show layout structure
 const SAMPLE_RESUME_DATA = {
   personalInfo: {
     fullName: "Your Name Here",
@@ -66,13 +66,31 @@ const SAMPLE_RESUME_DATA = {
   ]
 };
 
+// --- FIX: ONLY THIS SPECIFIC TEMPLATE IS FREE. ALL OTHERS ARE PRO. ---
+const FREE_TEMPLATES = ['basic-layout'];
+
 export default function TemplateGalleryModal({ isOpen, onClose, currentTemplateId, onSelectTemplate }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeDomain, setActiveDomain] = useState('All');
+  
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+  // --- NEW: Hardcode the Free Basic Template ---
+  const DEFAULT_BASIC_TEMPLATE = {
+    templateId: 'basic-layout',
+    name: 'Standard Basic (Free)',
+    domains: ['All', 'General'],
+    baseComponent: 'BasicLayout',
+    pro: false,
+    config: {
+      primaryColor: '#000000',
+      fontFamily: 'Arial, sans-serif'
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -84,9 +102,18 @@ export default function TemplateGalleryModal({ isOpen, onClose, currentTemplateI
         const response = await axios.get(`${API_BASE_URL}/api/templates`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        setTemplates(response.data);
+        
+        const fetchedTemplates = response.data;
+        
+        // --- FIX: Inject the Free template at the very front of the list ---
+        const hasBasic = fetchedTemplates.some(t => t.templateId === 'basic-layout');
+        if (!hasBasic) {
+          setTemplates([DEFAULT_BASIC_TEMPLATE, ...fetchedTemplates]);
+        } else {
+          setTemplates(fetchedTemplates);
+        }
+        
       } catch (err) {
-        console.error(err);
         setError('Failed to load template catalog.');
       } finally {
         setLoading(false);
@@ -98,122 +125,129 @@ export default function TemplateGalleryModal({ isOpen, onClose, currentTemplateI
 
   if (!isOpen) return null;
 
-  // Extract unique domains for the filter pills
   const allDomains = ['All', ...new Set(templates.flatMap(t => t.domains || []))];
-  
-  // Filter templates based on selected pill
   const displayedTemplates = activeDomain === 'All' 
     ? templates 
     : templates.filter(t => t.domains?.includes(activeDomain));
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-      backgroundColor: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(5px)',
-      display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999
-    }}>
+    <>
       <div style={{
-        backgroundColor: '#1e1e2f', width: '95%', maxWidth: '1000px', height: '85vh',
-        borderRadius: '12px', display: 'flex', flexDirection: 'column', border: '1px solid #444',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.5)', color: '#fff', overflow: 'hidden'
+        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(5px)',
+        display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999
       }}>
-        
-        {/* Modal Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 30px', borderBottom: '1px solid #333', backgroundColor: '#2a2a40' }}>
-          <h2 style={{ margin: 0, color: '#3b82f6' }}>🎨 Template Gallery</h2>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '24px', cursor: 'pointer' }}>✕</button>
-        </div>
+        <div style={{
+          backgroundColor: '#1e1e2f', width: '95%', maxWidth: '1000px', height: '85vh',
+          borderRadius: '12px', display: 'flex', flexDirection: 'column', border: '1px solid #444',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.5)', color: '#fff', overflow: 'hidden'
+        }}>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 30px', borderBottom: '1px solid #333', backgroundColor: '#2a2a40' }}>
+            <h2 style={{ margin: 0, color: '#3b82f6' }}>🎨 Template Gallery</h2>
+            <button title="Close Gallery" onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '24px', cursor: 'pointer' }}>✕</button>
+          </div>
 
-        {/* Filter Pills */}
-        <div style={{ padding: '20px 30px', borderBottom: '1px solid #333', display: 'flex', gap: '10px', overflowX: 'auto' }}>
-          {allDomains.map(domain => (
-            <button
-              key={domain}
-              onClick={() => setActiveDomain(domain)}
-              style={{
-                padding: '8px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap',
-                backgroundColor: activeDomain === domain ? '#3b82f6' : '#33334d',
-                color: activeDomain === domain ? 'white' : '#a0aec0',
-                transition: 'all 0.2s'
-              }}
-            >
-              {domain}
-            </button>
-          ))}
-        </div>
+          <div style={{ padding: '20px 30px', borderBottom: '1px solid #333', display: 'flex', gap: '10px', overflowX: 'auto' }}>
+            {allDomains.map(domain => (
+              <button
+                title={`Filter templates by ${domain} industry`}
+                key={domain}
+                onClick={() => setActiveDomain(domain)}
+                style={{
+                  padding: '8px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap',
+                  backgroundColor: activeDomain === domain ? '#3b82f6' : '#33334d',
+                  color: activeDomain === domain ? 'white' : '#a0aec0',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {domain}
+              </button>
+            ))}
+          </div>
 
-        {/* Template Grid */}
-        <div style={{ padding: '30px', overflowY: 'auto', flexGrow: 1 }}>
-          {loading ? (
-            <div style={{ textAlign: 'center', color: '#a0aec0', marginTop: '50px' }}>Loading templates...</div>
-          ) : error ? (
-            <div style={{ textAlign: 'center', color: '#ef4444', marginTop: '50px' }}>{error}</div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '25px' }}>
-              
-              {displayedTemplates.map(template => {
-                const isActive = currentTemplateId === template.templateId;
-                const LayoutComponent = getLayoutComponent(template.baseComponent); // <-- GET COMPONENT
+          <div style={{ padding: '30px', overflowY: 'auto', flexGrow: 1 }}>
+            {loading ? (
+              <div style={{ textAlign: 'center', color: '#a0aec0', marginTop: '50px' }}>Loading templates...</div>
+            ) : error ? (
+              <div style={{ textAlign: 'center', color: '#ef4444', marginTop: '50px' }}>{error}</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '25px' }}>
                 
-                return (
-                  <div key={template.templateId} style={{
-                    backgroundColor: '#2a2a40', borderRadius: '10px', overflow: 'hidden', 
-                    border: isActive ? '2px solid #10b981' : '1px solid #444',
-                    transition: 'transform 0.2s', cursor: 'pointer'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                  >
-                    {/* --- REPLACED STATIC THUMBNAIL WITH LIVE SCALED COMPONENT --- */}
-                    <div style={{ height: '300px', width: '100%', position: 'relative', overflow: 'hidden', backgroundColor: '#e2e8f0' }}>
-                      <div style={{
-                          width: '794px', height: '1123px', // A4 Paper size
-                          transform: 'scale(0.32)', transformOrigin: 'top left', // Scale it down to fit the 300px div
-                          position: 'absolute', top: 0, left: 0,
-                          backgroundColor: 'white', pointerEvents: 'none'
-                      }}>
-                          <LayoutComponent 
-                              resumeData={SAMPLE_RESUME_DATA} 
-                              config={template.config} 
-                          />
+                {displayedTemplates.map(template => {
+                  const isActive = currentTemplateId === template.templateId;
+                  const LayoutComponent = getLayoutComponent(template.baseComponent); 
+                  
+                  // --- THE FIX: Everything is Pro unless explicitly defined in FREE_TEMPLATES ---
+                  const isProTemplate = template.pro || !FREE_TEMPLATES.includes(template.templateId);
+                  
+                  return (
+                    <div key={template.templateId} style={{
+                      backgroundColor: '#2a2a40', borderRadius: '10px', overflow: 'hidden', 
+                      border: isActive ? '2px solid #10b981' : '1px solid #444',
+                      transition: 'transform 0.2s', cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
+                      <div style={{ height: '300px', width: '100%', position: 'relative', overflow: 'hidden', backgroundColor: '#e2e8f0' }}>
+                        <div style={{
+                            width: '794px', height: '1123px',
+                            transform: 'scale(0.32)', transformOrigin: 'top left', 
+                            position: 'absolute', top: 0, left: 0,
+                            backgroundColor: 'white', pointerEvents: 'none'
+                        }}>
+                            <LayoutComponent resumeData={SAMPLE_RESUME_DATA} config={template.config} />
+                        </div>
+                        
+                        {isProTemplate && (
+                          <div title="This is a Premium Template" style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: '#f59e0b', color: 'black', fontSize: '12px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '4px', zIndex: 10 }}>
+                            PRO
+                          </div>
+                        )}
                       </div>
                       
-                      {template.pro && (
-                        <div style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: '#f59e0b', color: 'black', fontSize: '12px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '4px', zIndex: 10 }}>
-                          PRO
-                        </div>
-                      )}
+                      <div style={{ padding: '15px' }}>
+                        <h3 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>{template.name}</h3>
+                        <p style={{ margin: '0 0 15px 0', fontSize: '12px', color: '#a0aec0' }}>
+                          {template.domains?.slice(0, 2).join(', ')}
+                        </p>
+                        
+                        <button 
+                          onClick={() => {
+                             if (isProTemplate) {
+                                 setShowUpgradeModal(true); // Pop the sales pitch!
+                             } else {
+                                 onSelectTemplate(template.templateId);
+                                 onClose();
+                             }
+                          }}
+                          style={{
+                            width: '100%', padding: '10px', borderRadius: '6px', border: 'none', fontWeight: 'bold', cursor: 'pointer',
+                            backgroundColor: isActive ? '#10b981' : (isProTemplate ? '#f59e0b' : '#3b82f6'), 
+                            color: isProTemplate ? '#000' : 'white'
+                          }}
+                        >
+                          {isActive ? '✓ Current Template' : (isProTemplate ? 'Unlock Pro Template' : 'Use This Template')}
+                        </button>
+                      </div>
                     </div>
-                    
-                    {/* Details & Action */}
-                    <div style={{ padding: '15px' }}>
-                      <h3 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>{template.name}</h3>
-                      <p style={{ margin: '0 0 15px 0', fontSize: '12px', color: '#a0aec0' }}>
-                        {template.domains?.slice(0, 2).join(', ')}
-                      </p>
-                      
-                      <button 
-                        onClick={() => {
-                           onSelectTemplate(template.templateId);
-                           onClose();
-                        }}
-                        style={{
-                          width: '100%', padding: '10px', borderRadius: '6px', border: 'none', fontWeight: 'bold', cursor: 'pointer',
-                          backgroundColor: isActive ? '#10b981' : '#3b82f6', color: 'white'
-                        }}
-                      >
-                        {isActive ? '✓ Current Template' : 'Use This Template'}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              
-            </div>
-          )}
-        </div>
+                  );
+                })}
+                
+              </div>
+            )}
+          </div>
 
+        </div>
       </div>
-    </div>
+
+      <UpgradeModal 
+          isOpen={showUpgradeModal} 
+          onClose={() => {
+              setShowUpgradeModal(false);
+          }} 
+      />
+    </>
   );
 }

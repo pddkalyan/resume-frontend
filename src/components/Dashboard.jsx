@@ -78,12 +78,14 @@ export default function Dashboard() {
         </div>
         <div>
           <button 
+            title="Start building a new resume from scratch or using Magic Import"
             onClick={() => navigate('/resume-builder')} 
             style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginRight: '15px' }}
           >
             + Create New Resume
           </button>
           <button 
+            title="Sign out of your account"
             onClick={handleLogout} 
             style={{ padding: '10px 20px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
           >
@@ -114,13 +116,19 @@ export default function Dashboard() {
                   {resume.title || 'Untitled Document'}
                 </h3>
                 
-                {/* --- FIX: CHECK BOTH 'public' AND 'isPublic' FOR THE LIVE DOT --- */}
+                {/* --- FIX: SEPARATED TOOLTIPS FOR VIEWS AND LIVE DOT --- */}
                 {(resume.public || resume.isPublic) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '12px', color: '#94a3b8', backgroundColor: '#1e293b', padding: '4px 8px', borderRadius: '6px' }}>
+                    <span 
+                      title="Total views from your public share link"
+                      style={{ fontSize: '12px', color: '#94a3b8', backgroundColor: '#1e293b', padding: '4px 8px', borderRadius: '6px', cursor: 'help' }}
+                    >
                         👁️ {resume.viewCount || 0} views
                     </span>
-                    <span style={{ fontSize: '12px', backgroundColor: '#10b981', color: 'white', padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span 
+                      title="This resume is currently accessible via your public share link"
+                      style={{ fontSize: '12px', backgroundColor: '#10b981', color: 'white', padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'help' }}
+                    >
                         <span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: 'white', borderRadius: '50%', animation: 'pulse 1.5s infinite' }}></span>
                         Live
                     </span>
@@ -138,6 +146,7 @@ export default function Dashboard() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', marginTop: '15px' }}>
               <button 
+                title="Preview the rendered resume and export it to PDF"
                 onClick={() => navigate(`/resume-viewer/${resume.id}`)} 
                 style={{ padding: '8px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
               >
@@ -145,6 +154,7 @@ export default function Dashboard() {
               </button>
               
               <button 
+                title="Update your skills, experience, or change the template"
                 onClick={() => navigate(`/resume-builder/${resume.id}`)} 
                 style={{ padding: '8px', backgroundColor: '#eab308', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
               >
@@ -152,6 +162,7 @@ export default function Dashboard() {
               </button>
 
               <button 
+                title="Generate a public link to share with recruiters online"
                 onClick={() => setActiveShareResume(resume)} 
                 style={{ padding: '8px', backgroundColor: '#8b5cf6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
               >
@@ -159,6 +170,7 @@ export default function Dashboard() {
               </button>
 
               <button 
+                title="Permanently delete this resume from the database"
                 onClick={async () => {
                   if (window.confirm(`Are you sure you want to delete "${resume.title || 'this resume'}"?`)) {
                     const token = localStorage.getItem('jwt_token');
@@ -190,7 +202,6 @@ export default function Dashboard() {
               window.location.reload(); 
           }}
           resumeId={activeShareResume?.id}
-          // --- FIX: Pass the correct property ---
           initialIsPublic={activeShareResume?.public !== undefined ? activeShareResume.public : activeShareResume?.isPublic}
           initialShareCode={activeShareResume?.shareCode}
       />
