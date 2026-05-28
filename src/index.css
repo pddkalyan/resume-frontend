@@ -2,17 +2,28 @@
 body {
   margin: 0;
   font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: #0f172a; /* Sleek dark background */
+  background-color: #0f172a; 
   color: #f8fafc;
-  min-height: 100vh; /* Changed from fixed height */
-  overflow-y: auto;  /* Explicitly allow vertical scrolling */
+  min-height: 100vh; 
+  overflow-y: auto;  
   box-sizing: border-box;
   
-  /* REMOVED the flex properties that were trapping the tall form */
+  /* --- NEW: GLOBAL ANTI-COPY CSS --- */
+  /* This prevents users from highlighting text to drag/copy it */
+  -webkit-user-select: none; 
+  -ms-user-select: none; 
+  user-select: none; 
+  -webkit-touch-callout: none; 
+}
+
+/* Allow text inputs and textareas to still be typable and selectable! */
+input, textarea {
+  -webkit-user-select: auto;
+  -ms-user-select: auto;
+  user-select: auto;
 }
 
 #root {
-  /* Adds a little breathing room around the edges of the screen */
   padding: 20px; 
 }
 
@@ -25,7 +36,6 @@ body {
   max-width: 400px;
   text-align: center;
   
-  /* NEW: This centers the login box now that the body isn't doing it */
   margin: 10vh auto; 
   box-sizing: border-box;
 }
@@ -63,7 +73,7 @@ body {
 }
 
 .auth-input:focus {
-  border-color: #3b82f6; /* Blue highlight on click */
+  border-color: #3b82f6; 
 }
 
 .primary-button {

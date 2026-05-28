@@ -6,6 +6,7 @@ import AtsScannerModal from './AtsScannerModal';
 import CoverLetterModal from './CoverLetterModal';
 import TemplateGalleryModal from './TemplateGalleryModal';
 import MagicImportModal from './MagicImportModal'; 
+import UpgradeModal from './UpgradeModal'; // <-- NEW IMPORT
 
 export default function ResumeBuilder() {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ export default function ResumeBuilder() {
   const [showCoverLetterModal, setShowCoverLetterModal] = useState(false);
   const [showGalleryModal, setShowGalleryModal] = useState(false);
   const [showMagicImportModal, setShowMagicImportModal] = useState(false); 
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false); // <-- NEW STATE
 
   useEffect(() => {
     const savedPhoto = sessionStorage.getItem('resume_photo');
@@ -153,12 +155,10 @@ export default function ResumeBuilder() {
     setTimeout(() => setSaveStatus({ message: '', type: '' }), 4000);
   };
 
-  // --- NEW: Handle saving the Cloned Design to MongoDB ---
   const handleMagicCloneSuccess = async (clonedDesignData) => {
     setSaveStatus({ message: '⏳ Saving new AI template to database...', type: 'success' });
     const token = localStorage.getItem('jwt_token');
 
-    // Create the template payload
     const templatePayload = {
         templateId: `tpl_custom_${Date.now()}`,
         name: clonedDesignData.name || "Custom AI Design",
@@ -166,18 +166,16 @@ export default function ResumeBuilder() {
         domains: clonedDesignData.domains || ["Custom"],
         baseComponent: "CustomHtmlLayout",
         config: {
-            html: clonedDesignData.html // The raw HTML from Gemini
+            html: clonedDesignData.html 
         },
         pro: true
     };
 
     try {
-        // Send to standard templates endpoint (Make sure your backend permits POST /api/templates)
         await axios.post(`${API_BASE_URL}/api/templates`, templatePayload, {
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
 
-        // Instantly switch the user's dropdown to use this new template!
         setSelectedTemplate(templatePayload.templateId);
         setSaveStatus({ message: '✨ Design Cloned! Click Save to apply it.', type: 'success' });
 
@@ -228,7 +226,10 @@ export default function ResumeBuilder() {
       }, 2000);
 
     } catch (error) {
-      if (error.response && error.response.status === 403) {
+      // --- FIX: INTERCEPT THE EDIT PAYWALL ---
+      if (error.response && error.response.data && error.response.data.error === 'PREMIUM_REQUIRED') {
+          setShowUpgradeModal(true);
+      } else if (error.response && error.response.status === 403) {
         setSaveStatus({ message: 'Session expired. Please log in again.', type: 'error' });
         handleLogout();
       } else {
@@ -661,12 +662,17 @@ export default function ResumeBuilder() {
         onSelectTemplate={(newTemplateId) => setSelectedTemplate(newTemplateId)}
       />
 
-      {/* --- NEW: MAGIC IMPORT MODAL PASSED THE CLONE HANDLER --- */}
       <MagicImportModal 
         isOpen={showMagicImportModal} 
         onClose={() => setShowMagicImportModal(false)}
         onImportSuccess={handleMagicImportSuccess}
-        onCloneSuccess={handleMagicCloneSuccess} // <-- NEW BINDING
+        onCloneSuccess={handleMagicCloneSuccess}
+      />
+      
+      {/* --- NEW: UPGRADE MODAL --- */}
+      <UpgradeModal 
+        isOpen={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)} 
       />
 
     </div>
